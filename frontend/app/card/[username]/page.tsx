@@ -20,6 +20,33 @@ import {
 } from 'lucide-react';
 import { getCardUrl, cn } from '@/lib/utils';
 
+async function generateQRDataUrl(url: string, size = 256): Promise<string> {
+  const QRCode = (await import('qrcode')).default;
+  return QRCode.toDataURL(url, { width: size, margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+}
+
+function downloadDataUrlAsPng(dataUrl: string, filename: string) {
+  fetch(dataUrl)
+    .then((res) => res.blob())
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(() => {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      a.click();
+    });
+}
+
 const PLATFORM_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   linkedin: Linkedin,
   github: Github,
@@ -40,6 +67,9 @@ export default function CardPage() {
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+
+  const cardUrl = typeof window !== 'undefined' ? getCardUrl(username) : '';
 
   useEffect(() => {
     if (!username) return;
@@ -53,7 +83,12 @@ export default function CardPage() {
       .finally(() => setLoading(false));
   }, [username]);
 
-  const cardUrl = typeof window !== 'undefined' ? getCardUrl(username) : '';
+  // Generate QR when card URL is ready (for share section download)
+  useEffect(() => {
+    if (!cardUrl) return;
+    generateQRDataUrl(cardUrl).then(setQrDataUrl).catch(() => {});
+  }, [cardUrl]);
+
   const themeColor = data?.theme_color ?? '#6366f1';
   const isDark = data?.dark_mode ?? false;
 
@@ -75,6 +110,11 @@ export default function CardPage() {
 
   function handleLinkClick(linkId: string) {
     cardApi.recordLinkClick(username, linkId).catch(() => {});
+  }
+
+  function handleDownloadQR() {
+    if (!qrDataUrl || !data) return;
+    downloadDataUrlAsPng(qrDataUrl, `${data.username}-qr.png`);
   }
 
   const vcardDownloadUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/card/${username}/vcard` : '';
@@ -212,14 +252,16 @@ export default function CardPage() {
               <Button variant="outline" size="sm" onClick={handleShareEmail}>
                 Email
               </Button>
-              <a
-                href={cardUrl}
-                download={`${data.username}-qr.png`}
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:underline"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadQR}
+                disabled={!qrDataUrl}
+                className="inline-flex items-center gap-1"
               >
                 <QrCode className="h-4 w-4" />
-                QR code (from dashboard)
-              </a>
+                {qrDataUrl ? 'Download QR' : 'QR…'}
+              </Button>
             </div>
           )}
         </div>
