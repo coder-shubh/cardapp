@@ -24,10 +24,24 @@ export default function DashboardQRPage() {
 
   function handleDownload() {
     if (!qrDataUrl) return;
-    const a = document.createElement('a');
-    a.href = qrDataUrl;
-    a.download = `card-${user?.username ?? 'card'}-qr.png`;
-    a.click();
+    // Convert data URL to Blob so the downloaded file is a real PNG (opens in Preview)
+    fetch(qrDataUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `card-${user?.username ?? 'card'}-qr.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        // Fallback: download as data URL (may not open in some viewers)
+        const a = document.createElement('a');
+        a.href = qrDataUrl;
+        a.download = `card-${user?.username ?? 'card'}-qr.png`;
+        a.click();
+      });
   }
 
   if (!user) return null;
