@@ -1,5 +1,7 @@
 [build]
   command = "npm run build"
+  # Must be different from base directory (frontend) — Next.js output is in .next
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
